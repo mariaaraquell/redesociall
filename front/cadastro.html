@@ -1,0 +1,70 @@
+
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cadastro - Socially</title>
+
+    <link rel="stylesheet" href="estilo.css">
+    <script src="script.js" defer></script>
+</head>
+
+<body>
+
+    <div class="container">
+
+        <h1>Socially</h1>
+
+        <p class="subtitulo">Crie sua conta</p>
+
+        <form id="formCadastro">
+
+            <label for="nome">Nome completo</label>
+            <input
+                type="text"
+                id="nome"
+                placeholder="Digite seu nome"
+                required
+            >
+
+            <label for="username">Nome de usuário</label>
+            <input
+                type="text"
+                id="username"
+                placeholder="Escolha um nome de usuário"
+                required
+            >
+
+            <label for="email">E-mail</label>
+            <input
+                type="email"
+                id="email"
+                placeholder="Digite seu e-mail"
+                required
+            >
+
+            <label for="senha">Senha</label>
+            <input
+                type="password"
+                id="senha"
+                placeholder="Crie uma senha"
+                required
+            >
+
+            <button type="submit">Cadastrar</button>
+
+            <p id="mensagem"></p>
+
+        </form>
+
+        <p class="cadastro">
+            Já tem uma conta?
+            <a href="login.html">Entrar</a>
+        </p>
+
+    </div>
+
+</body>
+</html>

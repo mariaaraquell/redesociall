@@ -1,0 +1,368 @@
+
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Feed - Socially</title>
+    <link rel="stylesheet" href="estilo.css">
+</head>
+
+<body>
+
+    <div class="feed-container">
+
+        <header class="feed-header">
+            <h1>Socially</h1>
+            <p>Conecte-se com seus amigos 💗</p>
+            <button type="button" onclick="sair()">Sair</button>
+        </header>
+
+        <main>
+
+            <section class="usuario-logado">
+                <h2>Olá!</h2>
+                <p id="nomeUsuario">Bem-vindo(a) à Socially.</p>
+            </section>
+
+            <section class="nova-publicacao">
+                <h2>O que você está pensando?</h2>
+
+                <form id="formPublicacao">
+
+                    <textarea
+                        id="conteudoPublicacao"
+                        placeholder="Escreva sua publicação..."
+                        required
+                    ></textarea>
+
+                    <label for="imagemPublicacao">Escolha uma foto:</label>
+
+                    <input
+                        type="file"
+                        id="imagemPublicacao"
+                        accept="image/jpeg,image/png,image/gif,image/webp"
+                    >
+
+                    <img
+                        id="previaImagem"
+                        style="display:none; max-width:100%; max-height:300px; margin-bottom:15px; border-radius:10px;"
+                        alt="Prévia da imagem"
+                    >
+
+                    <button type="submit">Publicar</button>
+
+                </form>
+
+                <p id="mensagemPublicacao"></p>
+            </section>
+
+            <section class="publicacoes">
+                <h2>Publicações recentes</h2>
+
+                <div id="listaPublicacoes">
+                    <p>Carregando publicações...</p>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <script>
+
+        const API = "http://localhost/redesocial/back/api.php";
+        const SITE = "http://localhost/redesocial/";
+
+        // SAIR DA CONTA
+        function sair() {
+            sessionStorage.removeItem("usuario");
+            window.location.href = "login.html";
+        }
+
+        const usuarioSalvo = sessionStorage.getItem("usuario");
+        const usuario = usuarioSalvo ? JSON.parse(usuarioSalvo) : null;
+
+        if (!usuario) {
+            window.location.href = "login.html";
+        } else {
+            document.getElementById("nomeUsuario").textContent =
+                "Bem-vindo(a), " + usuario.nome + "!";
+
+            carregarPublicacoes();
+        }
+
+        // PRÉVIA DA IMAGEM
+        const campoImagem = document.getElementById("imagemPublicacao");
+
+        campoImagem.addEventListener("change", function() {
+
+            const arquivo = campoImagem.files[0];
+            const previa = document.getElementById("previaImagem");
+
+            if (arquivo) {
+
+                if (!arquivo.type.startsWith("image/")) {
+                    alert("Selecione um arquivo de imagem.");
+                    campoImagem.value = "";
+                    previa.style.display = "none";
+                    return;
+                }
+
+                if (arquivo.size > 5 * 1024 * 1024) {
+                    alert("A imagem deve ter no máximo 5 MB.");
+                    campoImagem.value = "";
+                    previa.style.display = "none";
+                    return;
+                }
+
+                previa.src = URL.createObjectURL(arquivo);
+                previa.style.display = "block";
+
+            } else {
+                previa.style.display = "none";
+            }
+        });
+
+
+        // CRIAR PUBLICAÇÃO
+        const formPublicacao = document.getElementById("formPublicacao");
+
+        formPublicacao.addEventListener("submit", async function(event) {
+
+            event.preventDefault();
+
+            const conteudo = document.getElementById("conteudoPublicacao").value.trim();
+            const arquivo = campoImagem.files[0];
+            const mensagem = document.getElementById("mensagemPublicacao");
+
+            if (!conteudo) {
+                mensagem.textContent = "Digite algo antes de publicar.";
+                return;
+            }
+
+            mensagem.textContent = "Publicando...";
+
+            const formulario = new FormData();
+
+            formulario.append("id_usuario", usuario.id_usuario);
+            formulario.append("conteudo", conteudo);
+
+            if (arquivo) {
+                formulario.append("imagem", arquivo);
+            }
+
+            try {
+
+                const resposta = await fetch(API + "?rota=publicacao", {
+                    method: "POST",
+                    body: formulario
+                });
+
+                const dados = await resposta.json();
+
+                if (!resposta.ok) {
+                    throw new Error(
+                        dados.erro || dados.mensagem || "Erro ao publicar."
+                    );
+                }
+
+                formPublicacao.reset();
+
+                document.getElementById("previaImagem").style.display = "none";
+
+                mensagem.textContent = "Publicação realizada com sucesso! 💗";
+
+                await carregarPublicacoes();
+
+            } catch (erro) {
+                mensagem.textContent = erro.message;
+            }
+        });
+
+
+        // CARREGAR PUBLICAÇÕES E CURTIDAS
+        async function carregarPublicacoes() {
+
+            const lista = document.getElementById("listaPublicacoes");
+
+            try {
+
+                const [respostaPublicacoes, respostaCurtidas] = await Promise.all([
+                    fetch(API + "?rota=publicacao"),
+                    fetch(API + "?rota=curtida")
+                ]);
+
+                const publicacoes = await respostaPublicacoes.json();
+                const curtidas = await respostaCurtidas.json();
+
+                if (!respostaPublicacoes.ok || !respostaCurtidas.ok) {
+                    throw new Error("Erro ao carregar o feed.");
+                }
+
+                const listaPublicacoes = Array.isArray(publicacoes)
+                    ? publicacoes
+                    : (publicacoes.publicacoes || []);
+
+                const listaCurtidas = Array.isArray(curtidas)
+                    ? curtidas
+                    : (curtidas.curtidas || []);
+
+                lista.innerHTML = "";
+
+                if (listaPublicacoes.length === 0) {
+                    lista.textContent = "Ainda não existem publicações.";
+                    return;
+                }
+
+                listaPublicacoes.forEach(function(publicacao) {
+
+                    const card = document.createElement("div");
+
+                    card.style.backgroundColor = "#fff5f8";
+                    card.style.padding = "15px";
+                    card.style.borderRadius = "8px";
+                    card.style.marginBottom = "15px";
+
+                    const autor = document.createElement("strong");
+
+                    autor.textContent = publicacao.nome || publicacao.username || "Usuário";
+
+                    const texto = document.createElement("p");
+
+                    texto.textContent = publicacao.conteudo;
+                    texto.style.marginTop = "10px";
+                    texto.style.marginBottom = "12px";
+
+                    card.appendChild(autor);
+                    card.appendChild(texto);
+
+                    if (publicacao.imagem) {
+
+                        const imagem = document.createElement("img");
+
+                        imagem.src = SITE + publicacao.imagem;
+                        imagem.alt = "Imagem da publicação";
+                        imagem.style.width = "100%";
+                        imagem.style.maxHeight = "450px";
+                        imagem.style.objectFit = "contain";
+                        imagem.style.borderRadius = "10px";
+                        imagem.style.marginBottom = "12px";
+
+                        card.appendChild(imagem);
+                    }
+
+                    const curtidasDaPublicacao = listaCurtidas.filter(function(curtida) {
+
+                        return Number(curtida.id_publicacao) ===
+                            Number(publicacao.id_publicacao);
+
+                    });
+
+                    const minhaCurtida = curtidasDaPublicacao.find(function(curtida) {
+
+                        return Number(curtida.id_usuario) ===
+                            Number(usuario.id_usuario);
+
+                    });
+
+                    const botaoCurtir = document.createElement("button");
+
+                    botaoCurtir.type = "button";
+
+                    botaoCurtir.textContent = minhaCurtida
+                        ? "❤️ Curtido"
+                        : "🤍 Curtir";
+
+                    botaoCurtir.style.width = "auto";
+                    botaoCurtir.style.padding = "8px 15px";
+
+                    const quantidade = document.createElement("span");
+
+                    quantidade.textContent =
+                        " " + curtidasDaPublicacao.length + " curtida(s)";
+
+                    quantidade.style.marginLeft = "10px";
+
+                    botaoCurtir.addEventListener("click", function() {
+
+                        alterarCurtida(
+                            publicacao.id_publicacao,
+                            minhaCurtida
+                        );
+
+                    });
+
+                    card.appendChild(botaoCurtir);
+                    card.appendChild(quantidade);
+
+                    lista.appendChild(card);
+
+                });
+
+            } catch (erro) {
+
+                lista.textContent = erro.message;
+
+            }
+
+        }
+
+
+        // CURTIR OU REMOVER CURTIDA
+        async function alterarCurtida(idPublicacao, minhaCurtida) {
+
+            try {
+
+                let resposta;
+
+                if (minhaCurtida) {
+
+                    resposta = await fetch(
+                        API + "?rota=curtida&id=" + minhaCurtida.id_curtida,
+                        {
+                            method: "DELETE"
+                        }
+                    );
+
+                } else {
+
+                    resposta = await fetch(API + "?rota=curtida", {
+
+                        method: "POST",
+
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+
+                        body: JSON.stringify({
+                            id_usuario: usuario.id_usuario,
+                            id_publicacao: idPublicacao
+                        })
+
+                    });
+
+                }
+
+                const dados = await resposta.json();
+
+                if (!resposta.ok) {
+                    throw new Error(
+                        dados.erro || dados.mensagem || "Erro ao alterar curtida."
+                    );
+                }
+
+                await carregarPublicacoes();
+
+            } catch (erro) {
+
+                alert(erro.message);
+
+            }
+
+        }
+
+    </script>
+
+</body>
+</html>

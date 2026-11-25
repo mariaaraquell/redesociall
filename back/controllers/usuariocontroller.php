@@ -1,0 +1,172 @@
+
+<?php
+
+require_once __DIR__ . "/../models/usuariomodel.php";
+
+function teste(){
+    echo json_encode(["mensagem" => "Back-end respondendo com sucesso!"]);
+    exit;
+}
+
+//Recebe e valida os dados antes de chamar o Model
+function receberDadosUsuario(){
+
+    $dados = json_decode(file_get_contents("php://input"), true);
+
+    if(!is_array($dados)){
+        http_response_code(400);
+        echo json_encode(["erro" => "Envie um objeto JSON com os dados do usuário!"]);
+        return null;
+    }
+
+    foreach(["nome", "username", "email", "senha"] as $campo){
+
+        if(!isset($dados[$campo]) ||
+        !is_string($dados[$campo]) ||
+        trim($dados[$campo]) === "") {
+
+            http_response_code(400);
+            echo json_encode(["erro" => "O campo $campo é obrigatório e deve ser um texto não vazio."]);
+            return null;
+        }
+    }
+
+    return $dados;
+}
+
+//Recebe e valida o ID do usuário
+function receberIdUsuario(){
+
+    $id = filter_var(
+        $_GET["id"] ?? null,
+        FILTER_VALIDATE_INT,
+        ["options" => ["min_range" => 1]]
+    );
+
+    if($id === false || $id === null){
+        http_response_code(400);
+        echo json_encode(["erro" => "Informe um id de usuário válido"]);
+        return null;
+    }
+
+    return $id;
+}
+
+//CREATE
+function createUsuario($con){
+
+    $dados = receberDadosUsuario();
+
+    if($dados === null){
+        return;
+    }
+
+    $id = inserirUsuario($con, $dados);
+
+    http_response_code(201);
+    echo json_encode(["mensagem" => "Usuário criado com sucesso!", "id" => $id]);
+}
+
+//READ
+function readUsuario($con){
+
+    echo json_encode(listarUsuario($con));
+
+}
+
+//UPDATE
+function updateUsuario($con){
+
+    $id = receberIdUsuario();
+
+    if($id === null){
+        return;
+    }
+
+    $dados = receberDadosUsuario();
+
+    if($dados === null){
+        return;
+    }
+
+    updateUsuarioModel($con, $id, $dados);
+
+    echo json_encode(["mensagem" => "Senha alterada com sucesso!"]);
+}
+
+//DELETE
+function deleteUsuario($con){
+
+    $id = receberIdUsuario();
+
+    if($id === null){
+        return;
+    }
+
+    removerUsuario($con, $id);
+
+    echo json_encode(["mensagem" => "Usuário removido com sucesso!"]);
+}
+
+// LOGIN
+function loginUsuario($con){
+
+    $dados = json_decode(file_get_contents("php://input"), true);
+
+    if(
+        !isset($dados["email"]) ||
+        !isset($dados["senha"]) ||
+        trim($dados["email"]) === "" ||
+        trim($dados["senha"]) === ""
+    ){
+
+        http_response_code(400);
+
+        echo json_encode(["erro" => "Informe email e senha!"]);
+
+        return;
+    }
+
+    $usuario = buscarUsuarioPorEmail($con, $dados["email"]);
+
+    if(!$usuario || !password_verify($dados["senha"], $usuario["senha"])){
+
+        http_response_code(401);
+
+        echo json_encode(["erro" => "Email ou senha incorretos!"]);
+
+        return;
+    }
+
+    echo json_encode([
+        "mensagem" => "Login realizado com sucesso!",
+        "usuario" => [
+            "id_usuario" => $usuario["id_usuario"],
+            "nome" => $usuario["nome"],
+            "username" => $usuario["username"],
+            "email" => $usuario["email"]
+        ]
+    ]);
+
+// BUSCAR PERFIL DO USUÁRIO
+function readPerfilUsuario($con){
+
+    $id = receberIdUsuario();
+
+    if($id === null){
+        return;
+    }
+
+    $usuario = buscarUsuarioPorId($con, $id);
+
+    if(!$usuario){
+        http_response_code(404);
+        echo json_encode(["erro" => "Usuário não encontrado!"]);
+        return;
+    }
+
+    echo json_encode($usuario);
+}
+
+}
+
